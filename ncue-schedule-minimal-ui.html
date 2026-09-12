@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>彰師大課表轉換</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#20242A;
+    --ink-soft:#68707A;
+    --paper:#F6F7F9;
+    --paper-raised:#FFFFFF;
+    --grid-line:#E5E7EB;
+    --highlighter:#2563EB;
+    --highlighter-deep:#1D4ED8;
+    --ballpoint:#2563EB;
+    --ballpoint-deep:#1D4ED8;
+    --muted:#9AA1AA;
+    --danger:#B42318;
+    --danger-bg:#FEF3F2;
+    --radius-card:12px;
+    --radius-pill:999px;
+    --shadow-stamp:0 2px 8px rgba(15,23,42,0.06);
+    --shadow-stamp-sm:0 1px 4px rgba(15,23,42,0.05);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans TC',sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms!important;transition-duration:.001ms!important;}
+  }
+  h1,h2,h3{font-family:'Noto Sans TC',sans-serif;font-weight:700;margin:0;color:var(--ink);}
+  a{color:var(--ballpoint);}
+  .page{max-width:900px;margin:0 auto;padding:32px 20px 72px;}
+
+  .hero{margin-bottom:40px;}
+  .hero h1{font-size:clamp(28px,4.4vw,42px);line-height:1.28;max-width:16ch;letter-spacing:-.02em;}
+  .hero h2{line-height:1.28;max-width:16ch;letter-spacing:-.02em;}
+  .hero h2 mark{
+    background:none;color:inherit;padding:0;
+    border-bottom:4px solid #BFDBFE;
+  }
+  .hero p{color:var(--ink-soft);font-size:15px;margin-top:14px;}
+
+  .dropzone{
+    margin-top:26px;
+    border:1.5px dashed #C9CED6;
+    border-radius:var(--radius-card);
+    background:var(--paper-raised);
+    padding:34px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+  }
+  .dropzone:hover,.dropzone.drag{
+    border-color:#93C5FD;
+    background:#F8FAFF;
+    box-shadow:0 4px 14px rgba(37,99,235,.07);
+  }
+  .dropzone strong{font-size:16px;}
+  .dropzone .hint{display:block;margin-top:6px;font-size:13px;color:var(--muted);}
+  .dropzone input{display:none;}
+  .dropzone .icon{font-size:24px;margin-bottom:8px;display:block;}
+
+  .status-line{margin-top:14px;font-size:14px;display:none;align-items:center;gap:8px;}
+  .status-line.show{display:flex;}
+  .status-line.error{color:var(--danger);}
+  .status-line .spinner{
+    width:14px;height:14px;border-radius:50%;
+    border:2px solid var(--grid-line);border-top-color:var(--ballpoint);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .error-box{
+    display:none;margin-top:16px;padding:14px 16px;border-radius:var(--radius-card);
+    background:var(--danger-bg);border:1px solid #F1C8C5;color:#912018;font-size:14px;
+  }
+  .error-box.show{display:block;}
+
+  .steps{
+    display:flex;flex-wrap:wrap;gap:28px;margin:48px 0 8px;
+    padding-top:20px;border-top:1px solid var(--grid-line);
+  }
+  .step{flex:1 1 180px;min-width:150px;}
+  .step .num{font-family:'Noto Sans TC',sans-serif;font-weight:700;color:var(--muted);font-size:12px;letter-spacing:.04em;}
+  .step.active .num{color:var(--ballpoint);}
+  .step .label{font-size:14px;margin-top:2px;font-weight:500;}
+
+  section.panel{margin-top:44px;display:none;}
+  section.panel.show{display:block;}
+  .panel h2{font-size:21px;margin-bottom:6px;letter-spacing:-.01em;}
+  .panel .sub{color:var(--ink-soft);font-size:14px;margin-bottom:20px;}
+
+  .grid-wrap{
+    background:var(--paper-raised);border:1px solid var(--grid-line);
+    border-radius:var(--radius-card);padding:12px;overflow-x:auto;
+    box-shadow:var(--shadow-stamp-sm);
+  }
+  .week-grid{
+    display:grid;
+    grid-template-columns:64px repeat(7,minmax(84px,1fr));
+    grid-auto-rows:22px;min-width:720px;gap:1px;background:var(--grid-line);
+  }
+  .week-grid>div{background:var(--paper-raised);}
+  .head-cell{
+    font-size:12px;font-weight:700;text-align:center;padding:6px 2px;
+    background:var(--paper-raised);position:sticky;top:0;
+  }
+  .time-cell{
+    font-size:10.5px;color:var(--muted);text-align:center;padding:2px;
+    display:flex;flex-direction:column;justify-content:center;line-height:1.25;
+  }
+  .lunch-row{background:#F3F4F6;}
+  .course-block{
+    border-radius:7px;padding:6px 8px;font-size:12px;margin:1px;
+    display:flex;flex-direction:column;gap:2px;overflow:hidden;
+    box-shadow:none;border:1px solid rgba(0,0,0,.04);
+  }
+  .course-block .cb-name{font-weight:700;line-height:1.3;}
+  .course-block .cb-meta{font-size:10.5px;opacity:.78;}
+
+  .course-table{width:100%;border-collapse:collapse;font-size:14px;}
+  .course-table th{
+    text-align:left;font-weight:500;color:var(--muted);font-size:12px;
+    padding:6px 8px;border-bottom:1px solid var(--grid-line);
+  }
+  .course-table td{padding:6px 8px;border-bottom:1px solid var(--grid-line);vertical-align:middle;}
+  .course-table tr:last-child td{border-bottom:none;}
+  .course-table input,.course-table select{
+    width:100%;font:inherit;font-size:13px;padding:7px 8px;
+    border:1px solid #D9DDE3;border-radius:7px;background:var(--paper-raised);color:var(--ink);
+  }
+  .course-table input:focus,.course-table select:focus{
+    outline:2px solid #BFDBFE;outline-offset:1px;border-color:var(--ballpoint);
+  }
+  .col-day{min-width:76px;}
+  .col-time{min-width:100px;}
+  .col-name{min-width:160px;}
+  .col-credits{width:56px;}
+  .col-loc{min-width:120px;}
+  .col-teacher{min-width:88px;}
+  .row-del{
+    background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;
+    padding:4px 8px;border-radius:7px;
+  }
+  .row-del:hover{background:var(--danger-bg);}
+  .table-scroll{
+    overflow-x:auto;background:var(--paper-raised);border:1px solid var(--grid-line);
+    border-radius:var(--radius-card);padding:6px;box-shadow:var(--shadow-stamp-sm);
+  }
+
+  .add-row-btn{
+    margin-top:14px;background:none;border:1px dashed #C9CED6;color:var(--ink-soft);
+    padding:9px 15px;border-radius:var(--radius-pill);font:inherit;font-size:13px;cursor:pointer;
+  }
+  .add-row-btn:hover{border-color:var(--ballpoint);color:var(--ballpoint);background:#F8FAFF;}
+
+  .date-row{display:flex;gap:20px;flex-wrap:wrap;}
+  .date-field{flex:1 1 220px;}
+  .date-field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+  .date-field input{
+    width:100%;font:inherit;font-size:15px;padding:10px 12px;
+    border:1px solid #D9DDE3;border-radius:8px;background:var(--paper-raised);color:var(--ink);
+  }
+  .date-field input:focus{outline:2px solid #BFDBFE;outline-offset:1px;border-color:var(--ballpoint);}
+  .date-hint{font-size:12.5px;color:var(--muted);margin-top:10px;}
+
+  .export-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .btn{
+    font:inherit;font-size:15px;font-weight:700;cursor:pointer;
+    padding:12px 20px;border-radius:9px;border:1px solid #D5D9E0;
+    display:inline-flex;align-items:center;gap:10px;
+    box-shadow:none;transition:transform .08s ease,background .08s ease,border-color .08s ease;
+  }
+  .btn:active{transform:translateY(1px);box-shadow:none;}
+  .btn-primary{background:var(--highlighter);border-color:var(--highlighter);color:#fff;}
+  .btn-primary:hover{background:var(--highlighter-deep);border-color:var(--highlighter-deep);}
+  .btn-secondary{background:var(--paper-raised);color:var(--ink);}
+  .btn-secondary:hover{background:#F8FAFC;border-color:#C7CDD6;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+  .btn:disabled:active{transform:none;}
+  .export-note{font-size:12.5px;color:var(--muted);margin-top:12px;}
+
+  footer{
+    margin-top:80px;padding-top:20px;border-top:1px solid var(--grid-line);
+    font-size:13px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+  footer a{color:var(--ink-soft);text-decoration:none;}
+  footer a:hover{color:var(--ballpoint);}
+
+  :focus-visible{outline:2px solid var(--ballpoint);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <center><h1>彰師大課表轉換</h1></center>
+    <br>
+    <center><h2>把課表<mark>變成行事曆</h2></mark></center>
+    <p>上傳選課系統匯出的「學生課表」PDF，自動整理成一堂一堂的課程，再匯出成 Apple / Google 行事曆能匯入的 ICS，或是一份整理好的 Excel。全部處理都在你的瀏覽器裡完成，不會把課表傳到任何伺服器。</p>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="上傳課表 PDF">
+      <span class="icon">📄</span>
+      <strong>拖曳課表 PDF 到這裡，或點擊選擇檔案</strong>
+      <span class="hint">支援選課系統「學生課表」匯出的 PDF 格式</span>
+      <input type="file" id="fileInput" accept="application/pdf">
+    </div>
+    <div class="status-line" id="statusLine"><span class="spinner"></span><span id="statusText">正在讀取 PDF…</span></div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="steps">
+    <div class="step" id="step1"><div class="num">01</div><div class="label">上傳課表 PDF</div></div>
+    <div class="step" id="step2"><div class="num">02</div><div class="label">檢查課程內容</div></div>
+    <div class="step" id="step3"><div class="num">03</div><div class="label">設定學期起訖</div></div>
+    <div class="step" id="step4"><div class="num">04</div><div class="label">下載行事曆 / Excel</div></div>
+  </div>
+
+  <section class="panel" id="panelGrid">
+    <h2>課表預覽</h2>
+    <p class="sub">先確認一下讀取的結果跟你的課表一不一樣。</p>
+    <div class="grid-wrap"><div class="week-grid" id="weekGrid"></div></div>
+  </section>
+
+  <section class="panel" id="panelList">
+    <h2>課程明細</h2>
+    <p class="sub">自動判讀可能會有誤差，尤其是地點跟教室——請檢查一下，可以直接點格子修改，或刪除/新增整列。</p>
+    <div class="table-scroll">
+      <table class="course-table">
+        <thead>
+          <tr>
+            <th class="col-day">星期</th>
+            <th class="col-time">節次時間</th>
+            <th class="col-name">課程名稱</th>
+            <th class="col-credits">學分</th>
+            <th class="col-loc">地點</th>
+            <th class="col-teacher">教師</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="courseTableBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" id="addRowBtn" type="button">+ 新增一堂課</button>
+  </section>
+
+  <section class="panel" id="panelDates">
+    <h2>學期起訖日期</h2>
+    <p class="sub">行事曆會從開學日當週開始，每週重複到學期結束日。</p>
+    <div class="date-row">
+      <div class="date-field">
+        <label for="semesterStart">開學日(第一週上課日)</label>
+        <input type="date" id="semesterStart">
+      </div>
+      <div class="date-field">
+        <label for="semesterEnd">學期結束日(含期末考週)</label>
+        <input type="date" id="semesterEnd">
+      </div>
+    </div>
+    <p class="date-hint" id="dateHint"></p>
+  </section>
+
+  <section class="panel" id="panelExport">
+    <h2>下載</h2>
+    <p class="sub">兩種格式可以都下載，ICS 用來匯入手機或 Google／Apple 行事曆，Excel 用來自己看或列印。</p>
+    <div class="export-row">
+      <button class="btn btn-primary" id="downloadIcs" type="button" disabled>下載 .ics 行事曆檔</button>
+      <button class="btn btn-secondary" id="downloadXlsx" type="button" disabled>下載 .xlsx 課表</button>
+    </div>
+    <p class="export-note" id="exportNote"></p>
+  </section>
+
+  <footer>
+    <span title="vibe coding final boss">作者： 資管系119級 張子夫</span>
+    <a href="https://github.com/Tzufu0411" target="_blank" rel="noopener">我的 GitHub 首頁</a>
+    <a href="https://github.com/Tzufu0411/NCUE-ICS" target="_blank" rel="noopener">有問題歡迎發 Issue 或 PR</a>
+  </footer>
+  <br>
+  <center><span style="font-size: 7px;">本網頁與校方無關，僅為個人興趣製作</span></center>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  var WEEKDAY_ORDER = ['一','二','三','四','五','六','日'];
+  var WEEKDAY_ICS = {一:'MO',二:'TU',三:'WE',四:'TH',五:'FR',六:'SA',日:'SU'};
+  var ICS_TO_JSDAY = {SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+  var WEEKDAY_LABEL = {一:'星期一',二:'星期二',三:'星期三',四:'星期四',五:'星期五',六:'星期六',日:'星期日'};
+  var PERIOD_CHRONO_ORDER = [1,2,3,4,14,5,6,7,8,9,10,11,12,13];
+
+  var DEFAULT_PERIOD_TIMES = {
+    1:['08:10','09:00'], 2:['09:05','09:55'], 3:['10:15','11:05'], 4:['11:10','12:00'],
+    14:['12:05','12:55'], 5:['13:10','14:00'], 6:['14:05','14:55'], 7:['15:15','16:05'],
+    8:['16:10','17:00'], 9:['17:10','18:00'], 10:['18:20','19:10'], 11:['19:15','20:05'],
+    12:['20:10','21:00'], 13:['21:05','21:55']
+  };
+
+  var PREFIX_MAP = {
+    '10':'白沙大樓','11':'明德館','12':'至善館','13':'擷英館','14':'弘道館','15':'藝薈館','16':'聲洋館',
+    '18':'學思樓','21':'巧思館','22':'格致館','23':'格致館','24':'格致館','SE':'格致館',
+    '31':'力行館','32':'經世館','33':'教學一館','34':'教學二館','88':'體育館','55':'圖書館','T':'教學大樓',
+    '182':'學思樓'
+  };
+  var EXACT_MAP = {
+    '202':'學生活動中心2F','205':'學生活動中心2F','307':'學生活動中心3F','412':'學生活動中心4F',
+    'A301':'王金平活動中心3F','A501':'王金平活動中心5F'
+  };
+  var CODE_PATTERNS = [
+    {re:/\b(A301)\b/, kind:'exact'},
+    {re:/\b(A501)\b/, kind:'exact'},
+    {re:/\b(202)\b/, kind:'exact'},
+    {re:/\b(205)\b/, kind:'exact'},
+    {re:/\b(307)\b/, kind:'exact'},
+    {re:/\b(412)\b/, kind:'exact'},
+    {re:/\b(E|EB)(\d{2,4})\b/, kind:'ebuilding'},
+    {re:/\b(182\d{2})\b/, kind:'prefix182'},
+    {re:/\b(SE)(\d{2,4})\b/, kind:'prefix2'},
+    {re:/\b(1[0-8]|2[1-4]|3[1-4]|88|55)(\d{2,4})\b/, kind:'prefix2'},
+    {re:/\b(T)(\d{2,4})\b/, kind:'prefix2'}
+  ];
+
+  function toFloorRoom(digits){
+    // e.g. "33203" -> prefix "33" already stripped by caller; digits="203" -> 2樓03號教室
+    if(digits.length>=3){
+      var floor = digits.slice(0,1);
+      var room = digits.slice(1);
+      return floor+'樓'+room+'號教室';
+    }
+    return digits+'號教室';
+  }
+  function resolveLocation(raw){
+    var text = (raw||'').trim();
+    if(!text) return text;
+    for(var i=0;i<CODE_PATTERNS.length;i++){
+      var p = CODE_PATTERNS[i];
+      var m = text.match(p.re);
+      if(!m) continue;
+      if(p.kind==='exact'){
+        var code=m[1];
+        var name = EXACT_MAP[code];
+        return name.replace(/(\d+)F$/,'$1樓'); // e.g. A301 -> 王金平活動中心3樓
+      }
+      if(p.kind==='ebuilding'){ var code2=m[2]; return '工學院'+toFloorRoom(code2); }
+      if(p.kind==='prefix182'){ return '學思樓'+toFloorRoom(m[1].slice(3)); }
+      if(p.kind==='prefix2'){
+        var prefix=m[1], rest=m[2], building=PREFIX_MAP[prefix];
+        if(building) return building+toFloorRoom(rest);
+      }
+    }
+    return text;
+  }
+  function parseCreditsText(raw){
+    var m = (raw||'').match(/(\d+(?:\.\d+)?)/);
+    return m ? m[1] : (raw||'').trim();
+  }
+  function stripLeadingD(raw){
+    var t = (raw||'').trim();
+    if(t.charAt(0)==='D') t = t.slice(1);
+    return t;
+  }
+  function groupLines(items){
+    var filtered = items.filter(function(it){ return it.str && it.str.trim() !== ''; });
+    var sorted = filtered.slice().sort(function(a,b){ return a.top-b.top || a.x-b.x; });
+    var lines = [];
+    sorted.forEach(function(it){
+      var line = lines.filter(function(l){ return Math.abs(l.top-it.top) < 1.5; })[0];
+      if(!line){ line = {top:it.top, items:[]}; lines.push(line); }
+      line.items.push(it);
+    });
+    return lines.map(function(l){
+      return { top:l.top, text:l.items.slice().sort(function(a,b){return a.x-b.x;}).map(function(i){return i.str;}).join('') };
+    });
+  }
+  function parsePage(items){
+    var headerItems = items.filter(function(it){ return /^星期[一二三四五六日]$/.test(it.str); });
+    if(headerItems.length===0) return {columns:[], cells:[], periodTimes:{}};
+    var columns = headerItems.map(function(it){ return {char:it.str[2], x:it.x}; })
+      .sort(function(a,b){ return a.x-b.x; });
+
+    var gutterItems = items.filter(function(it){ return it.x < 112; });
+    var gutterLines = groupLines(gutterItems);
+
+    var periodLines = [], timeLines = [];
+    gutterLines.forEach(function(line){
+      var pm = line.text.match(/^第(\d+)節$/);
+      if(pm){ periodLines.push({num:Number(pm[1]), top:line.top}); return; }
+      var tm = line.text.match(/(\d{1,2})[:：](\d{2})\s*[~～\-]\s*(\d{1,2})[:：](\d{2})/);
+      if(tm){ timeLines.push({start:tm[1].padStart(2,'0')+':'+tm[2], end:tm[3].padStart(2,'0')+':'+tm[4], top:line.top}); }
+    });
+    periodLines.sort(function(a,b){ return a.top-b.top; });
+
+    var BAND_MARGIN = 3;
+    var bands = periodLines.map(function(p,i){
+      return {
+        num:p.num,
+        start:p.top - BAND_MARGIN,
+        end: (i+1<periodLines.length) ? (periodLines[i+1].top - BAND_MARGIN) : Infinity
+      };
+    });
+
+    var periodTimes = {};
+    bands.forEach(function(band){
+      var match = timeLines.filter(function(t){ return t.top>=band.start && t.top<band.end; })[0];
+      if(match) periodTimes[band.num] = [match.start, match.end];
+    });
+
+    var colXs = columns.map(function(c){ return c.x; });
+    var colRanges = columns.map(function(c,i){
+      return {
+        char:c.char,
+        start: i===0 ? 110 : (colXs[i-1]+colXs[i])/2,
+        end: (i+1<colXs.length) ? (colXs[i]+colXs[i+1])/2 : Infinity
+      };
+    });
+
+    var contentItems = items.filter(function(it){ return it.x >= 110 && it.str.trim() !== ''; });
+
+    var cells = [];
+    colRanges.forEach(function(col){
+      bands.forEach(function(band){
+        var cellItems = contentItems.filter(function(it){
+          return it.x>=col.start && it.x<col.end && it.top>=band.start && it.top<band.end;
+        });
+        if(cellItems.length===0) return;
+        var text = cellItems.slice().sort(function(a,b){ return a.top-b.top || a.x-b.x; })
+          .map(function(i){ return i.str; }).join('');
+        cells.push({weekdayChar:col.char, period:band.num, rawText:text});
+      });
+    });
+    return {columns:columns, periodTimes:periodTimes, cells:cells};
+  }
+  function parseCourseCell(rawText){
+    var parts = rawText.split('/');
+    if(parts.length < 5) return null;
+    var nameRaw = parts[1], creditsRaw = parts[2], locRaw = parts[3];
+    var teacherParts = parts.slice(4);
+    return {
+      name: stripLeadingD(nameRaw),
+      credits: parseCreditsText(creditsRaw),
+      location: resolveLocation(locRaw),
+      teacher: teacherParts.join('/').trim()
+    };
+  }
+  function buildBlocks(cells, periodTimesOverride){
+    var periodTimes = {};
+    Object.keys(DEFAULT_PERIOD_TIMES).forEach(function(k){ periodTimes[k]=DEFAULT_PERIOD_TIMES[k]; });
+    if(periodTimesOverride) Object.keys(periodTimesOverride).forEach(function(k){ periodTimes[k]=periodTimesOverride[k]; });
+
+    var byWeekday = {};
+    cells.forEach(function(c){
+      var parsed = parseCourseCell(c.rawText);
+      if(!parsed) return;
+      byWeekday[c.weekdayChar] = byWeekday[c.weekdayChar] || {};
+      byWeekday[c.weekdayChar][c.period] = parsed;
+    });
+
+    var blocks = [];
+    Object.keys(byWeekday).forEach(function(weekdayChar){
+      var dayMap = byWeekday[weekdayChar];
+      var run = null;
+      function flush(){
+        if(!run) return;
+        var startP = run.periods[0], endP = run.periods[run.periods.length-1];
+        blocks.push({
+          id: weekdayChar+'-'+startP+'-'+Math.random().toString(36).slice(2,8),
+          weekdayChar: weekdayChar,
+          weekdayLabel: WEEKDAY_LABEL[weekdayChar],
+          byday: WEEKDAY_ICS[weekdayChar],
+          name: run.course.name,
+          credits: run.course.credits,
+          location: run.course.location,
+          teacher: run.course.teacher,
+          startPeriod: startP,
+          endPeriod: endP,
+          startTime: periodTimes[startP][0],
+          endTime: periodTimes[endP][1]
+        });
+        run = null;
+      }
+      PERIOD_CHRONO_ORDER.forEach(function(p){
+        var course = dayMap[p];
+        if(!course){ flush(); return; }
+        var sameAsRun = run && run.course.name===course.name && run.course.credits===course.credits &&
+          run.course.location===course.location && run.course.teacher===course.teacher;
+        if(sameAsRun){ run.periods.push(p); } else { flush(); run={course:course, periods:[p]}; }
+      });
+      flush();
+    });
+    blocks.sort(function(a,b){
+      var wa=WEEKDAY_ORDER.indexOf(a.weekdayChar), wb=WEEKDAY_ORDER.indexOf(b.weekdayChar);
+      if(wa!==wb) return wa-wb;
+      return PERIOD_CHRONO_ORDER.indexOf(a.startPeriod) - PERIOD_CHRONO_ORDER.indexOf(b.startPeriod);
+    });
+    return blocks;
+  }
+
+  /* ============ App state & UI ============ */
+
+  var state = { blocks: [] };
+  var els = {
+    dropzone: document.getElementById('dropzone'),
+    fileInput: document.getElementById('fileInput'),
+    statusLine: document.getElementById('statusLine'),
+    statusText: document.getElementById('statusText'),
+    errorBox: document.getElementById('errorBox'),
+    step1: document.getElementById('step1'), step2: document.getElementById('step2'),
+    step3: document.getElementById('step3'), step4: document.getElementById('step4'),
+    panelGrid: document.getElementById('panelGrid'), weekGrid: document.getElementById('weekGrid'),
+    panelList: document.getElementById('panelList'), courseTableBody: document.getElementById('courseTableBody'),
+    addRowBtn: document.getElementById('addRowBtn'),
+    panelDates: document.getElementById('panelDates'),
+    semesterStart: document.getElementById('semesterStart'), semesterEnd: document.getElementById('semesterEnd'),
+    dateHint: document.getElementById('dateHint'),
+    panelExport: document.getElementById('panelExport'),
+    downloadIcs: document.getElementById('downloadIcs'), downloadXlsx: document.getElementById('downloadXlsx'),
+    exportNote: document.getElementById('exportNote')
+  };
+
+  var PALETTE = ['#FDE7A8','#C9E6D6','#F6CFE0','#C9DDF2','#E6D9F5','#F8DCC0','#D6E7B8','#F2C9C9'];
+  var colorCache = {};
+  function colorFor(name){
+    if(colorCache[name]) return colorCache[name];
+    var hash=0; for(var i=0;i<name.length;i++){ hash = (hash*31 + name.charCodeAt(i)) >>> 0; }
+    var c = PALETTE[hash % PALETTE.length];
+    colorCache[name] = c;
+    return c;
+  }
+
+  function showError(msg){
+    els.errorBox.textContent = msg;
+    els.errorBox.classList.add('show');
+  }
+  function clearError(){ els.errorBox.classList.remove('show'); els.errorBox.textContent=''; }
+  function setStatus(msg, isError){
+    els.statusLine.classList.add('show');
+    els.statusText.textContent = msg;
+    els.statusLine.classList.toggle('error', !!isError);
+    if(isError) els.statusLine.querySelector('.spinner').style.display='none';
+  }
+  function hideStatus(){ els.statusLine.classList.remove('show'); }
+
+  async function handleFile(file){
+    clearError();
+    if(!file) return;
+    if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
+      showError('這不是 PDF 檔，請重新選擇教務處匯出的課表 PDF。');
+      return;
+    }
+    setStatus('正在讀取 PDF…');
+    try{
+      var buf = await file.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({data: buf}).promise;
+      var allCells = [];
+      var mergedTimes = {};
+      for(var p=1; p<=pdf.numPages; p++){
+        var page = await pdf.getPage(p);
+        var viewport = page.getViewport({scale:1});
+        var content = await page.getTextContent();
+        var items = content.items.map(function(it){
+          return { str: it.str, x: it.transform[4], top: viewport.height - it.transform[5] };
+        });
+        var result = parsePage(items);
+        allCells = allCells.concat(result.cells);
+        Object.keys(result.periodTimes).forEach(function(k){ mergedTimes[k]=result.periodTimes[k]; });
+      }
+      var blocks = buildBlocks(allCells, mergedTimes);
+      if(blocks.length===0){
+        setStatus('沒有讀到課程', true);
+        showError('沒有在這份 PDF 裡讀到任何課程，可能不是教務處匯出的「學生課表」格式，或版面跟預期不同。可以確認一下檔案，或用下方「新增一堂課」手動輸入。');
+        state.blocks = [];
+        renderAll();
+        return;
+      }
+      state.blocks = blocks;
+      hideStatus();
+      renderAll();
+    }catch(err){
+      console.error(err);
+      setStatus('讀取失敗', true);
+      showError('讀取這份 PDF 時發生錯誤，請確認檔案沒有損壞，或換一份課表 PDF 再試一次。');
+    }
+  }
+
+  els.dropzone.addEventListener('click', function(){ els.fileInput.click(); });
+  els.dropzone.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); els.fileInput.click(); } });
+  els.fileInput.addEventListener('change', function(e){ handleFile(e.target.files[0]); });
+  ['dragenter','dragover'].forEach(function(evt){
+    els.dropzone.addEventListener(evt, function(e){ e.preventDefault(); els.dropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    els.dropzone.addEventListener(evt, function(e){ e.preventDefault(); els.dropzone.classList.remove('drag'); });
+  });
+  els.dropzone.addEventListener('drop', function(e){
+    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+    handleFile(f);
+  });
+
+  /* ---- Rendering ---- */
+  function renderAll(){
+    var hasBlocks = state.blocks.length>0;
+    els.step1.classList.toggle('active', true);
+    els.step2.classList.toggle('active', hasBlocks);
+    els.step3.classList.toggle('active', hasBlocks);
+    els.step4.classList.toggle('active', hasBlocks);
+    els.panelGrid.classList.toggle('show', hasBlocks);
+    els.panelList.classList.toggle('show', true);
+    els.panelDates.classList.toggle('show', hasBlocks);
+    els.panelExport.classList.toggle('show', hasBlocks);
+    renderGrid();
+    renderTable();
+    updateExportState();
+  }
+
+  function renderGrid(){
+    var grid = els.weekGrid;
+    grid.innerHTML = '';
+    var rowCount = PERIOD_CHRONO_ORDER.length;
+    grid.style.gridTemplateRows = '28px repeat(' + rowCount + ', minmax(24px, auto))';
+
+    // header row
+    var corner = document.createElement('div'); corner.className='head-cell'; corner.style.gridColumn='1'; corner.style.gridRow='1'; grid.appendChild(corner);
+    WEEKDAY_ORDER.forEach(function(ch, idx){
+      var h = document.createElement('div');
+      h.className='head-cell';
+      h.textContent = WEEKDAY_LABEL[ch].replace('星期','週');
+      h.style.gridColumn = (idx+2);
+      h.style.gridRow = '1';
+      grid.appendChild(h);
+    });
+
+    PERIOD_CHRONO_ORDER.forEach(function(period, i){
+      var rowLine = i+2;
+      var timeCell = document.createElement('div');
+      timeCell.className = 'time-cell' + (period===14 ? ' lunch-row' : '');
+      var t = DEFAULT_PERIOD_TIMES[period];
+      timeCell.innerHTML = '<span>'+period+'</span><span>'+t[0]+'</span>';
+      timeCell.style.gridColumn='1'; timeCell.style.gridRow = rowLine;
+      grid.appendChild(timeCell);
+      WEEKDAY_ORDER.forEach(function(ch, ci){
+        var cell = document.createElement('div');
+        cell.style.gridColumn = ci+2; cell.style.gridRow = rowLine;
+        if(period===14) cell.classList.add('lunch-row');
+        grid.appendChild(cell);
+      });
+    });
+
+    state.blocks.forEach(function(b){
+      var colIdx = WEEKDAY_ORDER.indexOf(b.weekdayChar);
+      if(colIdx===-1) return;
+      var startRow = PERIOD_CHRONO_ORDER.indexOf(b.startPeriod);
+      var endRow = PERIOD_CHRONO_ORDER.indexOf(b.endPeriod);
+      if(startRow===-1 || endRow===-1) return;
+      var block = document.createElement('div');
+      block.className='course-block';
+      block.style.background = colorFor(b.name);
+      block.style.gridColumn = colIdx+2;
+      block.style.gridRow = (startRow+2) + ' / ' + (endRow+3);
+      block.innerHTML = '<span class="cb-name">'+escapeHtml(b.name)+'</span>'+
+        '<span class="cb-meta">'+escapeHtml(b.location)+'</span>'+
+        '<span class="cb-meta">'+escapeHtml(b.teacher)+'</span>';
+      grid.appendChild(block);
+    });
+  }
+
+  function escapeHtml(s){
+    return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderTable(){
+    var tbody = els.courseTableBody;
+    tbody.innerHTML = '';
+    state.blocks.forEach(function(b, idx){
+      var tr = document.createElement('tr');
+
+      var tdDay = document.createElement('td');
+      var daySel = document.createElement('select');
+      WEEKDAY_ORDER.forEach(function(ch){
+        var opt = document.createElement('option');
+        opt.value = ch; opt.textContent = WEEKDAY_LABEL[ch];
+        if(ch===b.weekdayChar) opt.selected = true;
+        daySel.appendChild(opt);
+      });
+      daySel.addEventListener('change', function(){
+        b.weekdayChar = daySel.value; b.weekdayLabel = WEEKDAY_LABEL[daySel.value]; b.byday = WEEKDAY_ICS[daySel.value];
+        renderGrid();
+      });
+      tdDay.appendChild(daySel); tr.appendChild(tdDay);
+
+      var tdTime = document.createElement('td');
+      var startInput = document.createElement('input'); startInput.type='time'; startInput.value=b.startTime;
+      var endInput = document.createElement('input'); endInput.type='time'; endInput.value=b.endTime;
+      startInput.style.marginBottom='4px';
+      startInput.addEventListener('change', function(){ b.startTime = startInput.value; });
+      endInput.addEventListener('change', function(){ b.endTime = endInput.value; });
+      tdTime.appendChild(startInput); tdTime.appendChild(endInput); tr.appendChild(tdTime);
+
+      function textCell(field, value){
+        var td = document.createElement('td');
+        var input = document.createElement('input'); input.type='text'; input.value = value;
+        input.addEventListener('input', function(){ b[field] = input.value; if(field==='name') renderGrid(); });
+        td.appendChild(input); return td;
+      }
+      tr.appendChild(textCell('name', b.name));
+      tr.appendChild(textCell('credits', b.credits));
+      tr.appendChild(textCell('location', b.location));
+      tr.appendChild(textCell('teacher', b.teacher));
+
+      var tdDel = document.createElement('td');
+      var delBtn = document.createElement('button'); delBtn.className='row-del'; delBtn.type='button'; delBtn.textContent='✕';
+      delBtn.title='刪除這堂課';
+      delBtn.addEventListener('click', function(){
+        state.blocks.splice(idx,1);
+        renderAll();
+      });
+      tdDel.appendChild(delBtn); tr.appendChild(tdDel);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  els.addRowBtn.addEventListener('click', function(){
+    state.blocks.push({
+      id:'manual-'+Math.random().toString(36).slice(2,8),
+      weekdayChar:'一', weekdayLabel:'星期一', byday:'MO',
+      name:'新課程', credits:'', location:'', teacher:'',
+      startPeriod:1, endPeriod:1, startTime:'08:10', endTime:'09:00'
+    });
+    renderAll();
+  });
+
+  els.semesterStart.addEventListener('change', updateExportState);
+  els.semesterEnd.addEventListener('change', updateExportState);
+
+  function updateExportState(){
+    var hasBlocks = state.blocks.length>0;
+    var startVal = els.semesterStart.value, endVal = els.semesterEnd.value;
+    var datesOk = !!startVal && !!endVal && startVal <= endVal;
+    els.downloadIcs.disabled = !(hasBlocks && datesOk);
+    els.downloadXlsx.disabled = !hasBlocks;
+    if(hasBlocks && startVal && endVal && startVal > endVal){
+      els.dateHint.textContent = '學期結束日不能早於開學日，請確認一下日期。';
+      els.dateHint.style.color = 'var(--danger)';
+    } else {
+      els.dateHint.textContent = '';
+      els.dateHint.style.color = '';
+    }
+    els.exportNote.textContent = datesOk ? '' : (hasBlocks ? '設定好上面的學期起訖日期，就可以下載 ICS 行事曆檔了。' : '');
+  }
+
+  /* ---- ICS export ---- */
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function parseISODate(s){ var parts = s.split('-').map(Number); return {y:parts[0], m:parts[1], d:parts[2]}; }
+  function firstOccurrenceOnOrAfter(startISO, jsTargetDay){
+    var d = parseISODate(startISO);
+    var date = new Date(Date.UTC(d.y, d.m-1, d.d));
+    var diff = (jsTargetDay - date.getUTCDay() + 7) % 7;
+    date.setUTCDate(date.getUTCDate() + diff);
+    return date;
+  }
+  function fmtLocalDateTime(date, hhmm){
+    var y = date.getUTCFullYear(), m = pad2(date.getUTCMonth()+1), d = pad2(date.getUTCDate());
+    var hm = hhmm.replace(':','');
+    return '' + y + m + d + 'T' + hm + '00';
+  }
+  function buildIcs(blocks, semesterStartISO, semesterEndISO){
+    var lines = [];
+    lines.push('BEGIN:VCALENDAR');
+    lines.push('VERSION:2.0');
+    lines.push('PRODID:-//NCUE Schedule Converter//zh-TW//');
+    lines.push('CALSCALE:GREGORIAN');
+    lines.push('BEGIN:VTIMEZONE');
+    lines.push('TZID:Asia/Taipei');
+    lines.push('BEGIN:STANDARD');
+    lines.push('DTSTART:19700101T000000');
+    lines.push('TZOFFSETFROM:+0800');
+    lines.push('TZOFFSETTO:+0800');
+    lines.push('TZNAME:CST');
+    lines.push('END:STANDARD');
+    lines.push('END:VTIMEZONE');
+
+    var endParts = parseISODate(semesterEndISO);
+    var untilStr = '' + endParts.y + pad2(endParts.m) + pad2(endParts.d) + 'T155959Z';
+    var stamp = new Date();
+    var dtstamp = stamp.getUTCFullYear()+pad2(stamp.getUTCMonth()+1)+pad2(stamp.getUTCDate())+'T'+pad2(stamp.getUTCHours())+pad2(stamp.getUTCMinutes())+pad2(stamp.getUTCSeconds())+'Z';
+
+    blocks.forEach(function(b, idx){
+      var jsDay = ICS_TO_JSDAY[b.byday];
+      var firstDate = firstOccurrenceOnOrAfter(semesterStartISO, jsDay);
+      var dtstart = fmtLocalDateTime(firstDate, b.startTime);
+      var dtend = fmtLocalDateTime(firstDate, b.endTime);
+      lines.push('BEGIN:VEVENT');
+      lines.push('UID:ncue-'+idx+'-'+Math.random().toString(36).slice(2,10)+'@ncue-schedule');
+      lines.push('DTSTAMP:'+dtstamp);
+      lines.push('DTSTART;TZID=Asia/Taipei:'+dtstart);
+      lines.push('DTEND;TZID=Asia/Taipei:'+dtend);
+      lines.push('RRULE:FREQ=WEEKLY;BYDAY='+b.byday+';UNTIL='+untilStr);
+      lines.push('SUMMARY:'+icsEscape(b.name));
+      lines.push('LOCATION:'+icsEscape(b.location));
+      var desc = '教師: '+b.teacher+(b.credits ? '\n學分: '+b.credits : '');
+      lines.push('DESCRIPTION:'+icsEscape(desc));
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+  function icsEscape(s){
+    return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+  }
+
+  els.downloadIcs.addEventListener('click', function(){
+    var startVal = els.semesterStart.value, endVal = els.semesterEnd.value;
+    if(!startVal || !endVal || startVal>endVal) return;
+    var ics = buildIcs(state.blocks, startVal, endVal);
+    var blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+    triggerDownload(blob, '彰師大課表.ics');
+  });
+
+  els.downloadXlsx.addEventListener('click', function(){
+    var rows = state.blocks.map(function(b){
+      return {
+        '星期': b.weekdayLabel,
+        '節次': b.startPeriod===b.endPeriod ? ('第'+b.startPeriod+'節') : ('第'+b.startPeriod+'~'+b.endPeriod+'節'),
+        '時間': b.startTime+' ~ '+b.endTime,
+        '課程名稱': b.name,
+        '學分': b.credits,
+        '地點': b.location,
+        '教師': b.teacher
+      };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:14},{wch:14},{wch:24},{wch:6},{wch:16},{wch:10}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '課表');
+    XLSX.writeFile(wb, '彰師大課表.xlsx');
+  });
+
+  function triggerDownload(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
