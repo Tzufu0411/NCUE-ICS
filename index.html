@@ -553,6 +553,29 @@
     var h = Math.floor(m/60), mm = m%60;
     return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
   }
+  function formatHhmm(s){
+    var m = hhmmToMin(s);
+    return m==null ? null : minToHhmm(m);
+  }
+  function getPeriodTimeRangeText(period){
+    var idx = PERIOD_CHRONO_ORDER.indexOf(period);
+    var own = DEFAULT_PERIOD_TIMES[period] || [];
+    var start = formatHhmm(own[0]);
+    var end = formatHhmm(own[1]);
+    if(idx!==-1){
+      if(!start && idx>0){
+        var prev = DEFAULT_PERIOD_TIMES[PERIOD_CHRONO_ORDER[idx-1]] || [];
+        start = formatHhmm(prev[1]) || formatHhmm(prev[0]);
+      }
+      if(!end && idx+1<PERIOD_CHRONO_ORDER.length){
+        var next = DEFAULT_PERIOD_TIMES[PERIOD_CHRONO_ORDER[idx+1]] || [];
+        end = formatHhmm(next[0]) || formatHhmm(next[1]);
+      }
+    }
+    if(!start) start = end || '';
+    if(!end) end = start || '';
+    return start + '~' + end;
+  }
   function timeOverlaps(aStart, aEnd, bStart, bEnd){
     return aStart < bEnd && bStart < aEnd;
   }
@@ -699,8 +722,7 @@
       var rowLine = i+2;
       var timeCell = document.createElement('div');
       timeCell.className = 'time-cell' + (period===14 ? ' lunch-row' : '');
-      var t = DEFAULT_PERIOD_TIMES[period];
-      timeCell.innerHTML = '<span>'+period+'</span><span>'+t[0]+'</span>';
+      timeCell.innerHTML = '<span>'+period+'</span><span>'+getPeriodTimeRangeText(period)+'</span>';
       timeCell.style.gridColumn='1'; timeCell.style.gridRow = rowLine;
       grid.appendChild(timeCell);
       WEEKDAY_ORDER.forEach(function(ch, ci){
