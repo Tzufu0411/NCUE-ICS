@@ -607,7 +607,7 @@
     clearError();
     if(!file) return;
     if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
-      showError('這不是 PDF 檔，請重新選擇教務處匯出的課表 PDF。');
+      showError('這不是 PDF 檔，請重新選擇選課系統匯出的課表 PDF。');
       return;
     }
     setStatus('正在讀取 PDF…');
@@ -630,7 +630,7 @@
       var blocks = buildBlocks(allCells, mergedTimes);
       if(blocks.length===0){
         setStatus('沒有讀到課程', true);
-        showError('沒有在這份 PDF 裡讀到任何課程，可能不是教務處匯出的「學生課表」格式，或版面跟預期不同。可以確認一下檔案，或用下方「新增一堂課」手動輸入。');
+        showError('沒有在這份 PDF 裡讀到任何課程，可能不是選課系統匯出的「學生課表」格式，或版面跟預期不同。可以確認一下檔案，或用下方「新增一堂課」手動輸入。');
         state.blocks = [];
         renderAll();
         return;
