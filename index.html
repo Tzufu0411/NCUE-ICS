@@ -354,7 +354,7 @@
       if(p.kind==='exact'){
         var code=m[1];
         var name = EXACT_MAP[code];
-        return name.replace(/(\d+)F$/,'$1樓'); // e.g. A301 -> 王金平活動中心3樓
+        return name.replace(/(\d+)F$/,'$1樓');
       }
       if(p.kind==='ebuilding'){ var code2=m[2]; return '工學院'+toFloorRoom(code2); }
       if(p.kind==='prefix182'){ return '學思樓'+toFloorRoom(m[1].slice(3)); }
