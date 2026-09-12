@@ -128,6 +128,10 @@
     display:flex;flex-direction:column;gap:2px;overflow:hidden;
     box-shadow:none;border:1px solid rgba(0,0,0,.04);
   }
+  .course-block.conflict{
+    border:2px solid #B42318;
+    box-shadow: inset 0 0 0 1px rgba(180,35,24,.15);
+  }
   .course-block .cb-name{font-weight:700;line-height:1.3;}
   .course-block .cb-meta{font-size:10.5px;opacity:.78;}
 
@@ -540,6 +544,51 @@
     colorCache[name] = c;
     return c;
   }
+  function hhmmToMin(s){
+    if(!s || !/^\d{2}:\d{2}$/.test(s)) return null;
+    var p = s.split(':').map(Number);
+    return p[0]*60 + p[1];
+  }
+  function minToHhmm(m){
+    var h = Math.floor(m/60), mm = m%60;
+    return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  }
+  function timeOverlaps(aStart, aEnd, bStart, bEnd){
+    return aStart < bEnd && bStart < aEnd;
+  }
+  function recomputeDerivedPeriods(){
+    state.blocks.forEach(function(b){
+      var s = hhmmToMin(b.startTime), e = hhmmToMin(b.endTime);
+      if(s==null || e==null || e<=s) return;
+      var touched = PERIOD_CHRONO_ORDER.filter(function(p){
+        var t = DEFAULT_PERIOD_TIMES[p];
+        var ps = hhmmToMin(t[0]), pe = hhmmToMin(t[1]);
+        return timeOverlaps(s, e, ps, pe);
+      });
+      if(touched.length){
+        b.startPeriod = touched[0];
+        b.endPeriod = touched[touched.length-1];
+      }
+    });
+  }
+  function markConflicts(){
+    state.blocks.forEach(function(b){ b.conflict = false; });
+    WEEKDAY_ORDER.forEach(function(day){
+      var arr = state.blocks.filter(function(b){ return b.weekdayChar===day; });
+      for(var i=0;i<arr.length;i++){
+        var aS = hhmmToMin(arr[i].startTime), aE = hhmmToMin(arr[i].endTime);
+        if(aS==null || aE==null || aE<=aS){ arr[i].conflict = true; continue; }
+        for(var j=i+1;j<arr.length;j++){
+          var bS = hhmmToMin(arr[j].startTime), bE = hhmmToMin(arr[j].endTime);
+          if(bS==null || bE==null || bE<=bS){ arr[j].conflict = true; continue; }
+          if(timeOverlaps(aS,aE,bS,bE)){
+            arr[i].conflict = true;
+            arr[j].conflict = true;
+          }
+        }
+      }
+    });
+  }
 
   function showError(msg){
     els.errorBox.textContent = msg;
@@ -627,10 +676,14 @@
   }
 
   function renderGrid(){
+    recomputeDerivedPeriods();
+    markConflicts();
+
     var grid = els.weekGrid;
     grid.innerHTML = '';
-    var rowCount = PERIOD_CHRONO_ORDER.length;
-    grid.style.gridTemplateRows = '28px repeat(' + rowCount + ', minmax(24px, auto))';
+    var DAY_START = 8*60, DAY_END = 22*60, STEP = 5;
+    var rowCount = Math.ceil((DAY_END - DAY_START)/STEP);
+    grid.style.gridTemplateRows = '28px repeat(' + rowCount + ', minmax(6px, 1fr))';
 
     // header row
     var corner = document.createElement('div'); corner.className='head-cell'; corner.style.gridColumn='1'; corner.style.gridRow='1'; grid.appendChild(corner);
@@ -643,36 +696,47 @@
       grid.appendChild(h);
     });
 
-    PERIOD_CHRONO_ORDER.forEach(function(period, i){
+    for(var i=0; i<rowCount; i++){
+      var curMin = DAY_START + i*STEP;
       var rowLine = i+2;
       var timeCell = document.createElement('div');
-      timeCell.className = 'time-cell' + (period===14 ? ' lunch-row' : '');
-      var t = DEFAULT_PERIOD_TIMES[period];
-      timeCell.innerHTML = '<span>'+period+'</span><span>'+t[0]+'</span>';
+      timeCell.className = 'time-cell' + ((curMin>=12*60 && curMin<13*60) ? ' lunch-row' : '');
+      if(curMin % 60 === 0){
+        timeCell.innerHTML = '<span>'+minToHhmm(curMin)+'</span>';
+      }else{
+        timeCell.innerHTML = '<span></span>';
+      }
       timeCell.style.gridColumn='1'; timeCell.style.gridRow = rowLine;
       grid.appendChild(timeCell);
       WEEKDAY_ORDER.forEach(function(ch, ci){
         var cell = document.createElement('div');
         cell.style.gridColumn = ci+2; cell.style.gridRow = rowLine;
-        if(period===14) cell.classList.add('lunch-row');
+        if(curMin % 30 === 0){ cell.style.borderTop = '1px solid #E5E7EB'; }
+        if(curMin>=12*60 && curMin<13*60) cell.classList.add('lunch-row');
         grid.appendChild(cell);
       });
-    });
+    }
 
     state.blocks.forEach(function(b){
       var colIdx = WEEKDAY_ORDER.indexOf(b.weekdayChar);
       if(colIdx===-1) return;
-      var startRow = PERIOD_CHRONO_ORDER.indexOf(b.startPeriod);
-      var endRow = PERIOD_CHRONO_ORDER.indexOf(b.endPeriod);
-      if(startRow===-1 || endRow===-1) return;
+      var s = hhmmToMin(b.startTime), e = hhmmToMin(b.endTime);
+      if(s==null || e==null || e<=s) return;
+      s = Math.max(DAY_START, Math.min(DAY_END, s));
+      e = Math.max(DAY_START, Math.min(DAY_END, e));
+      if(e<=s) return;
+      var startRow = Math.floor((s - DAY_START)/STEP) + 2;
+      var endRow = Math.ceil((e - DAY_START)/STEP) + 2;
       var block = document.createElement('div');
-      block.className='course-block';
+      block.className='course-block' + (b.conflict ? ' conflict' : '');
       block.style.background = colorFor(b.name);
       block.style.gridColumn = colIdx+2;
-      block.style.gridRow = (startRow+2) + ' / ' + (endRow+3);
+      block.style.gridRow = startRow + ' / ' + endRow;
       block.innerHTML = '<span class="cb-name">'+escapeHtml(b.name)+'</span>'+
+        '<span class="cb-meta">'+escapeHtml(b.startTime+' - '+b.endTime)+'</span>'+
         '<span class="cb-meta">'+escapeHtml(b.location)+'</span>'+
-        '<span class="cb-meta">'+escapeHtml(b.teacher)+'</span>';
+        '<span class="cb-meta">'+escapeHtml(b.teacher)+'</span>'+
+        (b.conflict ? '<span class="cb-meta" style="color:#B42318;font-weight:700;">⚠ 時間衝突</span>' : '');
       grid.appendChild(block);
     });
   }
@@ -707,14 +771,14 @@
       var startInput = document.createElement('input'); startInput.type='time'; startInput.value=b.startTime;
       var endInput = document.createElement('input'); endInput.type='time'; endInput.value=b.endTime;
       startInput.style.marginBottom='4px';
-      startInput.addEventListener('change', function(){ b.startTime = startInput.value; });
-      endInput.addEventListener('change', function(){ b.endTime = endInput.value; });
+      startInput.addEventListener('input', function(){ b.startTime = startInput.value; renderGrid(); });
+      endInput.addEventListener('input', function(){ b.endTime = endInput.value; renderGrid(); });
       tdTime.appendChild(startInput); tdTime.appendChild(endInput); tr.appendChild(tdTime);
 
       function textCell(field, value){
         var td = document.createElement('td');
         var input = document.createElement('input'); input.type='text'; input.value = value;
-        input.addEventListener('input', function(){ b[field] = input.value; if(field==='name') renderGrid(); });
+        input.addEventListener('input', function(){ b[field] = input.value; renderGrid(); });
         td.appendChild(input); return td;
       }
       tr.appendChild(textCell('name', b.name));
